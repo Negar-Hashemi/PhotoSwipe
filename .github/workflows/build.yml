@@ -1,35 +1,39 @@
-name: PhotoSwipe Jobs
+name: Test on Multiple OS
 
-on: [workflow_dispatch]
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
 
 jobs:
   build:
-    name: Publish docs
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest] # Operating systems to test
+        node-version: [18, 20, 22]                      # Node.js versions to test
+        attempt: [1, 2, 3, 4, 5]                        # Repeat tests 5 times
+
     steps:
-      - name: "checkout repository"
-        uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: "setup node"
-        uses: actions/setup-node@v2
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: ${{ matrix.node-version }}
 
-      - name: "github api fetch (for stars count)"
-        working-directory: demo-docs-website
-        run: curl -s https://api.github.com/repos/dimsemenov/photoswipe -o ./repo-data.json 
+      - name: Install dependencies
+        run: npm install
 
-      - name: "npm install & build docs"
-        working-directory: demo-docs-website
+      - name: Testing on OS (${{ matrix.os }}) with Node.js (version ${{ matrix.node-version }}) attempt ${{ matrix.attempt }}
         run: |
-          npm install
-          npm run build
+          echo "Run attempt: ${{ matrix.attempt }}"
+          npm test
 
-      - name: "install ssh key"
-        uses: shimataro/ssh-key-action@v2
-        with:
-          key: ${{ secrets.SSH_PRIVATE_KEY }} 
-          known_hosts: ${{ secrets.KNOWN_HOSTS }}
-
-      - name: "deploy with rsync"
-        run: rsync -avz ./demo-docs-website/build/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.RSYNC_DIR }}
+    continue-on-error: false
